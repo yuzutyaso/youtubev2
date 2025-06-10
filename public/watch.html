@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>動画再生 - YouTube</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f0f0f0; color: #333; line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; }
+        .header-search-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            width: 100%;
+        }
+        .header-search-input {
+            width: 50%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px 0 0 5px;
+            font-size: 16px;
+        }
+        .header-search-button {
+            padding: 10px 15px;
+            background-color: #cc0000;
+            color: white;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .header-search-button:hover {
+            background-color: #aa0000;
+        }
+
+        h1 { color: #333; margin-top: 0; font-size: 24px; }
+        .video-player-container { position: relative; width: 100%; padding-bottom: 56.25%; /* 16:9 Aspect Ratio */ height: 0; background-color: #000; border-radius: 8px; overflow: hidden; margin-bottom: 20px;}
+        .video-player-container video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 8px; }
+        .video-info { margin-bottom: 20px; }
+        .video-info h2 { font-size: 28px; margin-bottom: 10px; color: #333; }
+        .video-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 14px; color: #555; border-bottom: 1px solid #eee; padding-bottom: 10px;}
+        .video-meta .channel-info { display: flex; align-items: center; }
+        .video-meta .channel-info img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
+        .video-meta .channel-name { font-weight: bold; color: #222; }
+        .video-meta .stats { display: flex; gap: 15px;}
+        .description-box { background-color: #f9f9f9; border-radius: 8px; padding: 15px; font-size: 15px; color: #444; white-space: pre-wrap; word-wrap: break-word; line-height: 1.8; }
+        .description-box a { color: #0645ad; text-decoration: none; }
+        .description-box a:hover { text-decoration: underline; }
+        .recommended-videos { margin-top: 20px; }
+        .recommended-videos h3 { margin-bottom: 15px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .recommended-item { display: flex; margin-bottom: 15px; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.1s ease-in-out; }
+        .recommended-item:hover { transform: translateX(5px); }
+        .recommended-item img { width: 160px; height: 90px; object-fit: cover; flex-shrink: 0; }
+        .recommended-details { padding: 10px; flex-grow: 1; }
+        .recommended-details h4 { margin-top: 0; font-size: 16px; line-height: 1.3; }
+        .recommended-details a { text-decoration: none; color: #333; }
+        .recommended-details a:hover { color: #cc0000; }
+        .recommended-details p { font-size: 13px; color: #666; margin: 3px 0; }
+        #loading { text-align: center; padding: 50px; font-size: 20px; color: #888; }
+        #error-message { color: red; text-align: center; padding: 50px; font-size: 18px; }
+
+        .comments-section { margin-top: 30px; }
+        .comments-section h3 { margin-bottom: 20px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .comment-item { display: flex; margin-bottom: 20px; }
+        .comment-item img { width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; object-fit: cover; }
+        .comment-content { flex-grow: 1; }
+        .comment-author { font-weight: bold; margin-bottom: 5px; }
+        .comment-text { font-size: 15px; color: #333; white-space: pre-wrap; word-wrap: break-word; }
+        .comment-info { font-size: 13px; color: #888; margin-top: 5px; }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .main-content { padding-right: 0; min-width: 100%; }
+            .sidebar { min-width: 100%; margin-top: 20px; }
+            .header-search-input { width: 80%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-search-container">
+            <input type="text" id="headerSearchInput" class="header-search-input" placeholder="動画を検索...">
+            <button id="headerSearchButton" class="header-search-button">検索</button>
+        </div>
+        <div id="loading">動画情報を読み込み中...</div>
+        <div id="error-message" style="display: none;"></div>
+
+        <div class="main-content" id="videoContent" style="display: none;">
+            <div class="video-player-container">
+                <video id="videoPlayer" controls autoplay></video>
+            </div>
+            <div class="video-info">
+                <h2 id="videoTitle"></h2>
+                <div class="video-meta">
+                    <div class="channel-info">
+                        <img id="channelThumbnail" src="" alt="チャンネルサムネイル">
+                        <span id="channelName" class="channel-name"></span>
+                    </div>
+                    <div class="stats">
+                        <span id="viewCount"></span>
+                        <span id="likeCount"></span>
+                    </div>
+                </div>
+                <div id="videoDescription" class="description-box"></div>
+            </div>
+
+            <div class="comments-section">
+                <h3>コメント</h3>
+                <div id="commentsList">
+                    <p id="commentsLoading" style="text-align: center; color: #888;">コメントを読み込み中...</p>
+                    <p id="noComments" style="text-align: center; color: #888; display: none;">コメントがありません。</p>
+                    <p id="commentsError" style="color: red; text-align: center; display: none;">コメントの読み込み中にエラーが発生しました。</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar" id="sidebarContent" style="display: none;">
+            <div class="recommended-videos">
+                <h3>おすすめ動画</h3>
+                <div id="recommendedVideosList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const videoPlayer = document.getElementById('videoPlayer');
+        const videoTitle = document.getElementById('videoTitle');
+        const channelThumbnail = document.getElementById('channelThumbnail');
+        const channelName = document.getElementById('channelName');
+        const viewCount = document.getElementById('viewCount');
+        const likeCount = document.getElementById('likeCount');
+        const videoDescription = document.getElementById('videoDescription');
+        const recommendedVideosList = document.getElementById('recommendedVideosList');
+        const loadingDiv = document.getElementById('loading');
+        const errorMessageDiv = document.getElementById('error-message');
+        const videoContentDiv = document.getElementById('videoContent');
+        const sidebarContentDiv = document.getElementById('sidebarContent');
+
+        const commentsListDiv = document.getElementById('commentsList');
+        const commentsLoadingDiv = document.getElementById('commentsLoading');
+        const noCommentsDiv = document.getElementById('noComments');
+        const commentsErrorDiv = document.getElementById('commentsError');
+
+        const headerSearchInput = document.getElementById('headerSearchInput');
+        const headerSearchButton = document.getElementById('headerSearchButton');
+
+        headerSearchButton.addEventListener('click', () => {
+            performHeaderSearch();
+        });
+
+        headerSearchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                performHeaderSearch();
+            }
+        });
+
+        function performHeaderSearch() {
+            const query = headerSearchInput.value.trim();
+            if (query) {
+                window.location.href = `/?q=${encodeURIComponent(query)}`;
+            } else {
+                alert('検索クエリを入力してください。');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            let videoId = urlParams.get('v'); // let に変更
+
+            // ★ここから修正★ ショート動画のURLからvideoIdを抽出するロジックを追加
+            if (!videoId) {
+                // ショート動画のパスからvideoIdを抽出する
+                // 例: /shorts/AbCdEfGhIjK -> videoId = AbCdEfGhIjK
+                const pathParts = window.location.pathname.split('/');
+                if (pathParts[1] === 'shorts' && pathParts[2]) {
+                    videoId = pathParts[2];
+                }
+            }
+            // ★ここまで修正★
+
+            const initialSearchQuery = urlParams.get('q');
+
+            if (initialSearchQuery) {
+                headerSearchInput.value = initialSearchQuery;
+            }
+
+            if (!videoId) {
+                errorMessageDiv.textContent = '動画IDが指定されていません。';
+                errorMessageDiv.style.display = 'block';
+                loadingDiv.style.display = 'none';
+                return;
+            }
+
+            try {
+                const videoResponse = await fetch(`/api/video/${videoId}`);
+                if (!videoResponse.ok) {
+                    throw new Error(`HTTP error! status: ${videoResponse.status}`);
+                }
+                const videoData = await videoResponse.json();
+
+                loadingDiv.style.display = 'none';
+                videoContentDiv.style.display = 'block';
+                sidebarContentDiv.style.display = 'block';
+
+                videoPlayer.src = videoData.videoStreamUrl;
+                videoTitle.textContent = videoData.title;
+                channelThumbnail.src = videoData.channelThumbnails || 'https://via.placeholder.com/40?text=No+Thumb';
+                channelName.textContent = videoData.channelName;
+                viewCount.textContent = videoData.viewCountText || '再生回数不明';
+                likeCount.textContent = videoData.likeCountText ? `高評価: ${videoData.likeCountText}` : '高評価数不明';
+                
+                videoDescription.innerHTML = formatDescription(videoData.description);
+
+                if (videoData.recommendedVideos && videoData.recommendedVideos.length > 0) {
+                    videoData.recommendedVideos.forEach(recVideo => {
+                        const recItem = document.createElement('div');
+                        recItem.classList.add('recommended-item');
+                        const recThumbnailUrl = `https://i.ytimg.com/vi/${recVideo.videoId}/maxresdefault.jpg`;
+                        recItem.innerHTML = `
+                            <a href="/watch?v=${recVideo.videoId}">
+                                <img src="${recThumbnailUrl}" alt="${recVideo.title}" onerror="this.onerror=null;this.src='https://via.placeholder.com/160x90?text=No+Image';">
+                                <div class="recommended-details">
+                                    <h4>${recVideo.title}</h4>
+                                    <p>${recVideo.author}</p>
+                                    <p>${recVideo.viewCountText || '再生回数不明'} ・ ${recVideo.publishedText || '公開日不明'}</p>
+                                </div>
+                            </a>
+                        `;
+                        recommendedVideosList.appendChild(recItem);
+                    });
+                } else {
+                    recommendedVideosList.innerHTML = '<p>おすすめ動画はありません。</p>';
+                }
+
+                try {
+                    const commentsResponse = await fetch(`/api/comments/${videoId}`);
+                    if (!commentsResponse.ok) {
+                        throw new Error(`HTTP error! status: ${commentsResponse.status}`);
+                    }
+                    const commentsData = await commentsResponse.json();
+
+                    commentsLoadingDiv.style.display = 'none';
+
+                    if (commentsData && commentsData.comments && commentsData.comments.length > 0) {
+                        commentsData.comments.forEach(comment => {
+                            const commentItem = document.createElement('div');
+                            commentItem.classList.add('comment-item');
+                            commentItem.innerHTML = `
+                                <img src="${comment.authorThumbnails && comment.authorThumbnails.length > 0 ? comment.authorThumbnails[0].url : 'https://via.placeholder.com/40?text=User'}" alt="${comment.author}">
+                                <div class="comment-content">
+                                    <div class="comment-author">${comment.author}</div>
+                                    <div class="comment-text">${comment.content}</div>
+                                    <div class="comment-info">${comment.likeCountText || '高評価なし'} ・ ${comment.publishedText || '投稿日不明'}</div>
+                                </div>
+                            `;
+                            commentsListDiv.appendChild(commentItem);
+                        });
+                    } else {
+                        noCommentsDiv.style.display = 'block';
+                    }
+                } catch (commentError) {
+                    console.error('コメントの取得エラー:', commentError);
+                    commentsLoadingDiv.style.display = 'none';
+                    commentsErrorDiv.style.display = 'block';
+                    commentsErrorDiv.textContent = `コメントの読み込み中にエラーが発生しました: ${commentError.message}`;
+                }
+
+            } catch (error) {
+                console.error('動画情報の取得エラー:', error);
+                loadingDiv.style.display = 'none';
+                errorMessageDiv.textContent = `動画情報の読み込み中にエラーが発生しました: ${error.message}`;
+                errorMessageDiv.style.display = 'block';
+            }
+        });
+
+        function formatDescription(description) {
+            if (!description) return '';
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const youtubeWatchRegex = /(\/watch\?v=[a-zA-Z0-9_-]+)/g;
+
+            let formattedText = description.replace(urlRegex, (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+            formattedText = formattedText.replace(youtubeWatchRegex, (url) => `<a href="/watch?v=${url.split('=')[1]}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+            
+            formattedText = formattedText.replace(/\n/g, '<br>');
+            return formattedText;
+        }
+    </script>
+</body>
+</html>
