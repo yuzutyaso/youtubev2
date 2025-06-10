@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube - 検索</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f0f0f0; color: #333; }
+        .container { max-width: 960px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #cc0000; }
+        .search-container { display: flex; justify-content: center; margin-bottom: 30px; }
+        .search-input { width: 60%; padding: 10px; border: 1px solid #ccc; border-radius: 5px 0 0 5px; font-size: 16px; }
+        .search-button { padding: 10px 15px; background-color: #cc0000; color: white; border: none; border-radius: 0 5px 5px 0; cursor: pointer; font-size: 16px; }
+        .search-button:hover { background-color: #aa0000; }
+        #results { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .video-item { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s ease-in-out; }
+        .video-item:hover { transform: translateY(-5px); }
+        .video-item img { width: 100%; height: 180px; object-fit: cover; border-bottom: 1px solid #eee; }
+        .video-details { padding: 15px; }
+        .video-details h3 { margin-top: 0; font-size: 18px; line-height: 1.4; }
+        .video-details a { text-decoration: none; color: #333; }
+        .video-details a:hover { color: #cc0000; }
+        .video-details p { font-size: 14px; color: #666; margin: 5px 0; }
+        .video-details .channel { font-weight: bold; }
+        #loading { text-align: center; padding: 20px; font-size: 18px; color: #888; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube</h1>
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="動画を検索...">
+            <button id="searchButton" class="search-button">検索</button>
+        </div>
+        <div id="loading">検索中...</div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const resultsDiv = document.getElementById('results');
+        const loadingDiv = document.getElementById('loading');
+
+        searchButton.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        async function performSearch() {
+            const query = searchInput.value.trim();
+            if (!query) {
+                resultsDiv.innerHTML = '<p style="text-align: center; color: #888;">検索クエリを入力してください。</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '';
+            loadingDiv.style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                loadingDiv.style.display = 'none';
+
+                if (data && data.length > 0) {
+                    data.forEach(video => {
+                        if (video.type === 'video') {
+                            const thumbnailUrl = `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg`;
+
+                            const videoItem = document.createElement('div');
+                            videoItem.classList.add('video-item');
+                            videoItem.innerHTML = `
+                                <a href="/watch?v=${video.videoId}">
+                                    <img src="${thumbnailUrl}" alt="${video.title}" onerror="this.onerror=null;this.src='https://via.placeholder.com/320x180?text=No+Image';">
+                                    <div class="video-details">
+                                        <h3>${video.title}</h3>
+                                        <p class="channel">${video.author}</p>
+                                        <p>${video.viewCountText || '再生回数不明'} ・ ${video.publishedText || '公開日不明'}</p>
+                                    </div>
+                                </a>
+                            `;
+                            resultsDiv.appendChild(videoItem);
+                        }
+                    });
+                } else {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #888;">検索結果が見つかりませんでした。</p>';
+                }
+            } catch (error) {
+                console.error('検索エラー:', error);
+                loadingDiv.style.display = 'none';
+                resultsDiv.innerHTML = `<p style="color: red; text-align: center;">検索中にエラーが発生しました: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
